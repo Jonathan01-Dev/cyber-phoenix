@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 Archipel | Sprint 0 : Fondation et Identite Souveraine
 1. Presentation
 
@@ -67,7 +66,40 @@ En cours / A venir (Sprint 1)
     Bash
 
     python -m src.cli.main status
-=======
+﻿# README Sprint 0 - Cyber Phoenix (Archipel)
+
+
+`Archipel_Document_Technique_Participants.pdf`, section **SPRINT 0 - BOOTSTRAP & ARCHITECTURE**.
+
+## 1. Cible du Sprint 0
+
+- Fenetre: **H+0 -> H+2**
+- Livrable cle: **repo actif + proto PKI + specification protocole**
+
+## 2. Exigences officielles (doc)
+
+- Repository Git en place, branches creees
+- Langage principal choisi et justifie dans la documentation
+- Technologie de transport local choisie
+- Generation des paires de cles par noeud
+- Format de paquet binaire defini
+- Schema d'architecture present dans le README
+
+Recommandation officielle retenue: **UDP Multicast** (decouverte) + **TCP** (transfert).
+
+## 3. Decisions techniques du projet
+
+- Langage principal: **Python**
+- Reseau local:
+  - decouverte multicast `239.255.42.99:6000`
+  - transport pair-a-pair TCP (port par defaut `7777`)
+- Crypto:
+  - identite et signatures: Ed25519
+  - echange de secret: X25519
+  - derivation de cle: HKDF-SHA256
+  - session: AES-GCM
+- Contrainte architecture: pas de serveur central, logique LAN deconnectee d'Internet
+
 ﻿# README Sprint 0 - Cyber Phoenix (Archipel)
 
 
@@ -155,6 +187,16 @@ Valide:
 - base decouverte P2P + serveur TCP presents (`src/network/discovery.py`, `src/network/tcp_server.py`)
 
 
+
+Valide:
+
+- configuration protocole centralisee (`src/config.py`)
+- couche identite/PKI presente (`src/crypto/identity.py`)
+- handshake secure present (`src/crypto/handshake.py`)
+- format paquet defini et parse (`src/network/packet.py`)
+- base decouverte P2P + serveur TCP presents (`src/network/discovery.py`, `src/network/tcp_server.py`)
+
+
 ## 7. Verification rapide
 
 ```bash
@@ -162,4 +204,3 @@ python -m compileall src
 ```
 
 
->>>>>>> 6fb9287 (readme)
