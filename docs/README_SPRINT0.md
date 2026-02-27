@@ -1,49 +1,45 @@
-﻿# README Sprint 0 - Archipel
+﻿# README Sprint 0 - Cyber Phoenix (Archipel)
 
-Ce document synthétise le **Sprint 0 (Bootstrap & Architecture)** selon le document technique `Archipel_Document_Technique_Participants.pdf` et l'état actuel du projet dans `C:\Archipel`.
 
-## 1. Cadre Sprint 0 (référence document)
+`Archipel_Document_Technique_Participants.pdf`, section **SPRINT 0 - BOOTSTRAP & ARCHITECTURE**.
 
-- Fenêtre: **H+0 -> H+2**
-- Livrable clé attendu: **repo actif, proto PKI, spec protocole**
-- Focus: **environnement opérationnel** + **décisions d'architecture figées**
+## 1. Cible du Sprint 0
 
-### Checklist officielle Sprint 0 (doc)
+- Fenetre: **H+0 -> H+2**
+- Livrable cle: **repo actif + proto PKI + specification protocole**
 
-- Repo cloné et branches créées
-- Choix du langage principal + justification dans le README
-- Choix de la techno transport local
-- Génération des paires de clés pour chaque noeud
-- Définition du format de paquet binaire
-- Schéma d'architecture (ASCII ou diagramme) dans le README
+## 2. Exigences officielles (doc)
 
-Recommandation document: **UDP Multicast** pour la découverte + **TCP** pour le transfert.
+- Repository Git en place, branches creees
+- Langage principal choisi et justifie dans la documentation
+- Technologie de transport local choisie
+- Generation des paires de cles par noeud
+- Format de paquet binaire defini
+- Schema d'architecture present dans le README
 
-## 2. Choix techniques Archipel (projet)
+Recommandation officielle retenue: **UDP Multicast** (decouverte) + **TCP** (transfert).
 
-- Langage principal: **Python 3.13**
-- Modèle réseau local:
-  - Découverte: **UDP Multicast** (`239.255.42.99:6000`)
-  - Transport pair-à-pair: **TCP** (port par défaut `7777`)
+## 3. Decisions techniques du projet
+
+- Langage principal: **Python**
+- Reseau local:
+  - decouverte multicast `239.255.42.99:6000`
+  - transport pair-a-pair TCP (port par defaut `7777`)
 - Crypto:
-  - Identité: **Ed25519** (signature)
-  - ECDH: **X25519**
-  - Session: **AES-256-GCM**
-  - Dérivation: **HKDF-SHA256**
-- Contraintes:
-  - Fonctionnement LAN sans dépendance serveur central
-  - Respect de la logique "zéro connexion internet" au runtime protocolaire
+  - identite et signatures: Ed25519
+  - echange de secret: X25519
+  - derivation de cle: HKDF-SHA256
+  - session: AES-GCM
+- Contrainte architecture: pas de serveur central, logique LAN deconnectee d'Internet
 
-## 3. Spécification paquet binaire (implémentée)
-
-Format `ARCHIPEL PACKET v1`:
+## 4. Specification binaire Archipel v1
 
 - `MAGIC`: 4 bytes (`ARCH`)
 - `TYPE`: 1 byte
 - `NODE_ID`: 32 bytes
-- `PAYLOAD_LEN`: 4 bytes (`uint32 big-endian`)
-- `PAYLOAD`: longueur variable
-- `SIGNATURE`: 32 bytes (HMAC-SHA256 ou placeholder)
+- `PAYLOAD_LEN`: 4 bytes (uint32 big-endian)
+- `PAYLOAD`: variable
+- `SIGNATURE`: 32 bytes
 
 Types de paquets:
 
@@ -59,76 +55,40 @@ Types de paquets:
 - `0x0A AUTH`
 - `0x0B AUTH_OK`
 
-Constantes correspondantes: `src/config.py`.
+Reference implementation: `src/config.py`, `src/network/packet.py`.
 
-## 4. Architecture Sprint 0 (ASCII)
-
-```text
-+-------------------+       +--------------------+
-|      CLI          |<----->|   Archipel Node    |
-| src/cli/main.py   |       | orchestration      |
-+-------------------+       +---------+----------+
-                                      |
-           +--------------------------+--------------------------+
-           |                          |                          |
-           v                          v                          v
-+-------------------+      +-------------------+      +-------------------+
-|  Crypto Layer     |      |  Network Layer    |      |  Transfer Layer   |
-| identity.py       |      | discovery.py      |      | chunker.py        |
-| handshake.py      |      | tcp_server.py     |      | manifests/chunks  |
-+-------------------+      | packet.py         |      +-------------------+
-                           +-------------------+
-```
-
-## 5. État de conformité Sprint 0
-
-### Valide
-
-- Structure modulaire `src/crypto`, `src/network`, `src/transfer`, `src/cli`
-- Configuration centrale et types de paquets (`src/config.py`)
-- Format paquet binaire défini et sérialisé (`src/network/packet.py`)
-- Base PKI locale (clé noeud créée et persistée) (`src/crypto/identity.py`)
-- Décision transport alignée doc (multicast + TCP)
-
-### À finaliser pour clôture stricte Sprint 0
-
-- Tag git `sprint-0` (non vérifiable ici car dossier sans `.git` local)
-- Schéma d'architecture du Sprint 0 intégré aussi dans le README racine
-- Validation équipe (branches/issues) selon workflow hackathon
-
-## 6. Arborescence cible (Sprint 0+)
+## 5. Architecture Sprint 0 (etat actuel)
 
 ```text
-archipel/
+cyber-phoenix/
 ├── src/
+│   ├── config.py
 │   ├── crypto/
-│   ├── network/
-│   ├── transfer/
-│   ├── messaging/
-│   └── cli/
-├── tests/
-├── docs/
-└── demo/
+│   │   ├── identity.py
+│   │   └── handshake.py
+│   └── network/
+│       ├── packet.py
+│       ├── discovery.py
+│       └── tcp_server.py
+└── docs/
+    └── README_SPRINT0.md
 ```
 
-## 7. Commandes de démarrage
+## 6. Conformite Sprint 0
+
+Valide:
+
+- configuration protocole centralisee (`src/config.py`)
+- couche identite/PKI presente (`src/crypto/identity.py`)
+- handshake secure present (`src/crypto/handshake.py`)
+- format paquet defini et parse (`src/network/packet.py`)
+- base decouverte P2P + serveur TCP presents (`src/network/discovery.py`, `src/network/tcp_server.py`)
+
+
+## 7. Verification rapide
 
 ```bash
-pip install -r requirements.txt
-python -m src.cli.main status
-python -m src.cli.main start --port 7777
+python -m compileall src
 ```
 
-## 8. Références projet
 
-- Config globale: `src/config.py`
-- Identité/PKI: `src/crypto/identity.py`
-- Handshake: `src/crypto/handshake.py`
-- Packet format: `src/network/packet.py`
-- Discovery LAN: `src/network/discovery.py`
-- TCP P2P: `src/network/tcp_server.py`
-- CLI: `src/cli/main.py`
-
----
-
-Document source utilisé: `C:\Users\DELL LATITUDE 7430\Downloads\Archipel_Document_Technique_Participants.pdf` (section Sprint 0 et plan des sprints).
