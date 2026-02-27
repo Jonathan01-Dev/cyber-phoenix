@@ -1,134 +1,68 @@
-﻿# README Sprint 0 - Archipel
+Archipel | Sprint 0 : Fondation et Identite Souveraine
+1. Presentation
 
-Ce document synthétise le **Sprint 0 (Bootstrap & Architecture)** selon le document technique `Archipel_Document_Technique_Participants.pdf` et l'état actuel du projet dans `C:\Archipel`.
+Ce depot contient l'implementation du protocole Archipel, un systeme de communication P2P souverain concu pour operer en environnement deconnecte (Zero-Internet).
 
-## 1. Cadre Sprint 0 (référence document)
+Ce Sprint 0 etablit les bases cryptographiques.
+2. Architecture du Projet
 
-- Fenêtre: **H+0 -> H+2**
-- Livrable clé attendu: **repo actif, proto PKI, spec protocole**
-- Focus: **environnement opérationnel** + **décisions d'architecture figées**
+Conformement aux recommandations du document technique:
 
-### Checklist officielle Sprint 0 (doc)
-
-- Repo cloné et branches créées
-- Choix du langage principal + justification dans le README
-- Choix de la techno transport local
-- Génération des paires de clés pour chaque noeud
-- Définition du format de paquet binaire
-- Schéma d'architecture (ASCII ou diagramme) dans le README
-
-Recommandation document: **UDP Multicast** pour la découverte + **TCP** pour le transfert.
-
-## 2. Choix techniques Archipel (projet)
-
-- Langage principal: **Python 3.13**
-- Modèle réseau local:
-  - Découverte: **UDP Multicast** (`239.255.42.99:6000`)
-  - Transport pair-à-pair: **TCP** (port par défaut `7777`)
-- Crypto:
-  - Identité: **Ed25519** (signature)
-  - ECDH: **X25519**
-  - Session: **AES-256-GCM**
-  - Dérivation: **HKDF-SHA256**
-- Contraintes:
-  - Fonctionnement LAN sans dépendance serveur central
-  - Respect de la logique "zéro connexion internet" au runtime protocolaire
-
-## 3. Spécification paquet binaire (implémentée)
-
-Format `ARCHIPEL PACKET v1`:
-
-- `MAGIC`: 4 bytes (`ARCH`)
-- `TYPE`: 1 byte
-- `NODE_ID`: 32 bytes
-- `PAYLOAD_LEN`: 4 bytes (`uint32 big-endian`)
-- `PAYLOAD`: longueur variable
-- `SIGNATURE`: 32 bytes (HMAC-SHA256 ou placeholder)
-
-Types de paquets:
-
-- `0x01 HELLO`
-- `0x02 PEER_LIST`
-- `0x03 MSG`
-- `0x04 CHUNK_REQ`
-- `0x05 CHUNK_DATA`
-- `0x06 MANIFEST`
-- `0x07 ACK`
-- `0x08 HANDSHAKE_HELLO`
-- `0x09 HANDSHAKE_REPLY`
-- `0x0A AUTH`
-- `0x0B AUTH_OK`
-
-Constantes correspondantes: `src/config.py`.
-
-## 4. Architecture Sprint 0 (ASCII)
-
-```text
-+-------------------+       +--------------------+
-|      CLI          |<----->|   Archipel Node    |
-| src/cli/main.py   |       | orchestration      |
-+-------------------+       +---------+----------+
-                                      |
-           +--------------------------+--------------------------+
-           |                          |                          |
-           v                          v                          v
-+-------------------+      +-------------------+      +-------------------+
-|  Crypto Layer     |      |  Network Layer    |      |  Transfer Layer   |
-| identity.py       |      | discovery.py      |      | chunker.py        |
-| handshake.py      |      | tcp_server.py     |      | manifests/chunks  |
-+-------------------+      | packet.py         |      +-------------------+
-                           +-------------------+
-```
-
-## 5. État de conformité Sprint 0
-
-### Valide
-
-- Structure modulaire `src/crypto`, `src/network`, `src/transfer`, `src/cli`
-- Configuration centrale et types de paquets (`src/config.py`)
-- Format paquet binaire défini et sérialisé (`src/network/packet.py`)
-- Base PKI locale (clé noeud créée et persistée) (`src/crypto/identity.py`)
-- Décision transport alignée doc (multicast + TCP)
-
-### À finaliser pour clôture stricte Sprint 0
-
-- Tag git `sprint-0` (non vérifiable ici car dossier sans `.git` local)
-- Schéma d'architecture du Sprint 0 intégré aussi dans le README racine
-- Validation équipe (branches/issues) selon workflow hackathon
-
-## 6. Arborescence cible (Sprint 0+)
-
-```text
-archipel/
+Archipel_Team_Name/
+├── README.md               # Documentation critique (Sprint 0)
+├── .env.example            # Modele des variables (API Gemini, etc.)
+├── .gitignore              # Exclusion des cles privees (*.key) et env
 ├── src/
-│   ├── crypto/
-│   ├── network/
-│   ├── transfer/
-│   ├── messaging/
-│   └── cli/
-├── tests/
-├── docs/
-└── demo/
-```
+│   ├── crypto/             # Modules PKI, Ed25519, Handshake X25519
+│   ├── network/            # Decouverte Multicast, TCP Server, Packet logic
+│   ├── transfer/           # Chunking (512KB), Manifests
+│   ├── messaging/          # Logique de chat et integration IA
+│   └── cli/                # Interface utilisateur (CLI)
+├── tests/                  # Tests unitaires de robustesse
+└── config.py               # Constantes globales et types de paquets
 
-## 7. Commandes de démarrage
+3. Choix Techniques et Justifications
+Composant	Technologie	Justification
+Langage	Python 3.13	Rapidite de prototypage et bibliotheques crypto matures.
+Decouverte	UDP Multicast	239.255.42.99:6000 - Standard pour le Zero-Conf LAN.
+Transport	TCP	Port 7777 - Garantit l'integrite des transferts de fichiers.
+Identite	Ed25519	Signature numerique rapide et securisee.
+Chiffrement	AES-256-GCM	Chiffrement authentifie pour prevenir toute alteration.
+4. Specification du Paquet Binaire (Archipel v1)
 
-```bash
-pip install -r requirements.txt
-python -m src.cli.main status
-python -m src.cli.main start --port 7777
-```
+Pour optimiser les echanges sans serveur, nous avons defini un format de paquet binaire strict :
+Champ	Taille	Description
+MAGIC	4 bytes	Identifiant du protocole (ARCH)
+TYPE	1 byte	Type de message (HELLO, MSG, CHUNK, etc.)
+NODE_ID	32 bytes	Empreinte publique de l'expediteur
+PAYLOAD_LEN	4 bytes	Taille de la donnee (Big-endian)
+PAYLOAD	Variable	Donnees chiffrees
+SIGNATURE	64 bytes	Signature Ed25519 du paquet
+5. Etat d'avancement (Sprint 0)
+Realise
 
-## 8. Références projet
+    Arborescence conforme : Structure src/ prete et documentee.
 
-- Config globale: `src/config.py`
-- Identité/PKI: `src/crypto/identity.py`
-- Handshake: `src/crypto/handshake.py`
-- Packet format: `src/network/packet.py`
-- Discovery LAN: `src/network/discovery.py`
-- TCP P2P: `src/network/tcp_server.py`
-- CLI: `src/cli/main.py`
+    Identite locale : Generation et persistance securisee des cles Ed25519 (src/crypto/identity.py).
 
----
+    Definition Protocole : Mapping des types de paquets (0x01 a 0x0B) dans config.py.
 
-Document source utilisé: `C:\Users\DELL LATITUDE 7430\Downloads\Archipel_Document_Technique_Participants.pdf` (section Sprint 0 et plan des sprints).
+    Gestionnaire de Paquets : Serialisation et Deserialisation binaire implementee.
+
+En cours / A venir (Sprint 1)
+
+    Initialisation du scan UDP Multicast.
+
+    Gestion de la Peer Table dynamique.
+
+6. Demarrage Rapide
+
+    Installation des dependances :
+    Bash
+
+    pip install pynacl pycryptodome
+
+    Initialiser l'identite du noeud :
+    Bash
+
+    python -m src.cli.main status
