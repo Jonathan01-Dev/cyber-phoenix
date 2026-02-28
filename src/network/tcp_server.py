@@ -24,6 +24,7 @@ class PeerConnection:
     last_ping_sent: float = 0.0
     last_pong_recv: float = 0.0
     keepalive_task: Optional[asyncio.Task] = None
+    shared_hash: Optional[bytes] = None
 
 
 class TCPServer:
@@ -98,16 +99,20 @@ class TCPServer:
 
     async def _process_packet(self, packet: ArchipelPacket, conn: PeerConnection) -> None:
         if packet.pkt_type == PacketType.HANDSHAKE_HELLO:
-            reply, _, session = self.handshake.respond_to_handshake(packet.payload)
+            reply, shared_hash, session = self.handshake.respond_to_handshake(packet.payload)
             conn.session = session
+            conn.shared_hash = shared_hash
             conn.writer.write(self._tlv_pack(PacketType.HANDSHAKE_REPLY, reply))
             await conn.writer.drain()
 
         elif packet.pkt_type == PacketType.AUTH:
-            if conn.session is None:
+            if conn.session is None or conn.shared_hash is None:
                 conn.writer.close()
                 return
-            if not self.identity.verify(b"AUTH", packet.payload, packet.node_id):
+            if not PacketBuilder.verify_signature(packet, conn.session.session_key):
+                conn.writer.close()
+                return
+            if not self.identity.verify(conn.shared_hash, packet.payload, packet.node_id):
                 conn.writer.close()
                 return
             conn.handshake_complete = True
@@ -196,16 +201,18 @@ class TCPServer:
             if not reply_packet or reply_packet.pkt_type != PacketType.HANDSHAKE_REPLY:
                 return False
 
-            session = self.handshake.complete_handshake(
+            result = self.handshake.complete_handshake(
                 reply_packet.payload, e_private, bytes.fromhex(node_id)
             )
-            if not session:
+            if not result:
                 return False
+            session, shared_hash = result
 
             auth = PacketBuilder.build(
                 PacketType.AUTH,
                 self.identity.node_id,
-                self.identity.sign(b"AUTH"),
+                self.identity.sign(shared_hash),
+                signing_key=session.session_key,
             )
             writer.write(self._tlv_pack(PacketType.AUTH, auth))
             await writer.drain()
@@ -233,7 +240,7 @@ class TCPServer:
             return True
 
         except Exception as e:
-            print(f"Echec connexion a {ip}:{port}: {e}")
+            print(f"Echec connexion a {ip}:{port}: {e!r}")
             return False
 
     async def _read_loop(self, conn: PeerConnection) -> None:
