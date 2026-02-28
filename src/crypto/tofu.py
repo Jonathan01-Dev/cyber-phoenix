@@ -43,6 +43,16 @@ class TrustStore:
             return None
         return str(item.get("node_id"))
 
+    def all_entries(self) -> dict[str, dict]:
+        return {k: dict(v) for k, v in self._store.items()}
+
+    def entries_for_node(self, node_id: str) -> list[tuple[str, dict]]:
+        out: list[tuple[str, dict]] = []
+        for endpoint, meta in self._store.items():
+            if str(meta.get("node_id")) == node_id:
+                out.append((endpoint, dict(meta)))
+        return out
+
     def _load(self) -> None:
         if not self.storage_path.exists():
             return

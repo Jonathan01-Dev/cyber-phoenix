@@ -30,6 +30,13 @@ Implémentation Python d'un nœud P2P LAN.
 - Telechargement parallele multi-sources (min 3 workers)
 - Reassemblage du fichier et verification hash final
 
+## Sprint 4 livre
+
+- CLI interactive de demo (`python3 -m src.cli.app start --port ...`)
+- Commandes: `peers`, `msg`, `send`, `receive`, `download`, `status`, `trust`
+- Integration Gemini isolee avec fallback propre
+- Mode offline garanti via `--no-ai`
+
 ## Lancer
 
 ```bash
@@ -63,4 +70,10 @@ python3 -m src.node --port 7777 --share /chemin/fichier.bin
 
 # Noeud receveur (file_id affiche par le noeud source)
 python3 -m src.node --port 7778 --download <file_id> --out ./copie.bin
+```
+
+Exemple Sprint 4 (CLI):
+
+```bash
+python3 -m src.cli.app start --port 7777 --no-ai
 ```
