@@ -4,7 +4,7 @@ import json
 import struct
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional
+from typing import Awaitable, Callable, Dict, Optional
 
 from src.config import Config, PacketType
 from src.crypto.handshake import HandshakeProtocol
@@ -33,15 +33,17 @@ class TCPServer:
         self,
         identity: NodeIdentity,
         port: int,
-        message_handler: Callable,
+        message_handler: Callable[[str, bytes], Awaitable[None]],
         peer_table: Optional[PeerTable] = None,
         trust_store: Optional[TrustStore] = None,
+        packet_handler: Optional[Callable[[str, int, bytes], Awaitable[None]]] = None,
     ):
         self.identity = identity
         self.port = port
         self.message_handler = message_handler
         self.peer_table = peer_table
         self.trust_store = trust_store
+        self.packet_handler = packet_handler
         self.config = Config()
         self.handshake = HandshakeProtocol(identity)
         self.connections: Dict[str, PeerConnection] = {}
@@ -125,14 +127,24 @@ class TCPServer:
                 conn.keepalive_task = asyncio.create_task(self._keepalive_loop(conn))
 
         elif packet.pkt_type == PacketType.MSG and conn.handshake_complete:
-            if conn.session is None or not PacketBuilder.verify_signature(
-                packet, conn.session.session_key
-            ):
+            plaintext = self._decrypt_secure_payload(packet, conn)
+            if plaintext is None:
                 conn.writer.close()
                 return
-            plaintext = PacketBuilder.decrypt_payload(conn.session, packet.payload)
-            if plaintext:
-                await self.message_handler(conn.node_id, plaintext)
+            await self.message_handler(conn.node_id, plaintext)
+
+        elif packet.pkt_type in (
+            PacketType.MANIFEST,
+            PacketType.CHUNK_REQ,
+            PacketType.CHUNK_DATA,
+            PacketType.ACK,
+        ) and conn.handshake_complete:
+            plaintext = self._decrypt_secure_payload(packet, conn)
+            if plaintext is None:
+                conn.writer.close()
+                return
+            if self.packet_handler and conn.node_id:
+                await self.packet_handler(conn.node_id, packet.pkt_type, plaintext)
 
         elif packet.pkt_type == PacketType.PING and conn.handshake_complete:
             if conn.session is None or not PacketBuilder.verify_signature(
@@ -156,9 +168,6 @@ class TCPServer:
                 conn.writer.close()
                 return
             conn.last_pong_recv = time.time()
-
-        elif packet.pkt_type == PacketType.CHUNK_REQ:
-            return
 
     async def connect_to_peer(self, ip: str, port: int, node_id: str) -> bool:
         try:
@@ -250,15 +259,18 @@ class TCPServer:
                 del self.connections[conn.node_id]
 
     async def send_message(self, node_id: str, message: bytes) -> bool:
+        return await self.send_encrypted_packet(node_id, PacketType.MSG, message)
+
+    async def send_encrypted_packet(self, node_id: str, pkt_type: int, payload: bytes) -> bool:
         conn = self.connections.get(node_id)
         if not conn or not conn.session:
             return False
 
         try:
             packet = PacketBuilder.build_encrypted(
-                conn.session, PacketType.MSG, self.identity.node_id, message
+                conn.session, pkt_type, self.identity.node_id, payload
             )
-            conn.writer.write(self._tlv_pack(PacketType.MSG, packet))
+            conn.writer.write(self._tlv_pack(pkt_type, packet))
             await conn.writer.drain()
             return True
         except Exception:
@@ -318,3 +330,11 @@ class TCPServer:
             if conn.keepalive_task:
                 conn.keepalive_task.cancel()
             conn.writer.close()
+
+    @staticmethod
+    def _decrypt_secure_payload(packet: ArchipelPacket, conn: PeerConnection) -> Optional[bytes]:
+        if conn.session is None:
+            return None
+        if not PacketBuilder.verify_signature(packet, conn.session.session_key):
+            return None
+        return PacketBuilder.decrypt_payload(conn.session, packet.payload)
