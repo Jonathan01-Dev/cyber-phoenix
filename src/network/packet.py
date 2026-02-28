@@ -1,5 +1,6 @@
 ﻿"""Format de paquet binaire Archipel."""
 import hashlib
+import hmac
 import struct
 from dataclasses import dataclass
 from typing import Optional
@@ -58,9 +59,7 @@ class PacketBuilder:
         header = struct.pack(">4sB32sI", ARCHIPEL_MAGIC, pkt_type, node_id, len(payload))
 
         if signing_key:
-            import hmac
-
-            signature = hmac.new(signing_key, header + payload, hashlib.sha256).digest()
+            signature = PacketBuilder._compute_hmac(signing_key, header + payload)
         else:
             signature = b"\x00" * 32
 
@@ -70,7 +69,19 @@ class PacketBuilder:
     def build_encrypted(session, pkt_type: int, node_id: bytes, plaintext: bytes) -> bytes:
         nonce, ciphertext, tag = session.encrypt(plaintext)
         payload = nonce + tag + ciphertext
-        return PacketBuilder.build(pkt_type, node_id, payload)
+        return PacketBuilder.build(pkt_type, node_id, payload, signing_key=session.session_key)
+
+    @staticmethod
+    def verify_signature(packet: ArchipelPacket, signing_key: bytes) -> bool:
+        header = struct.pack(
+            ">4sB32sI",
+            packet.magic,
+            packet.pkt_type,
+            packet.node_id,
+            len(packet.payload),
+        )
+        expected = PacketBuilder._compute_hmac(signing_key, header + packet.payload)
+        return hmac.compare_digest(packet.signature, expected)
 
     @staticmethod
     def decrypt_payload(session, payload: bytes) -> Optional[bytes]:
@@ -85,3 +96,7 @@ class PacketBuilder:
             return session.decrypt(nonce, ciphertext, tag)
         except Exception:
             return None
+
+    @staticmethod
+    def _compute_hmac(signing_key: bytes, data: bytes) -> bytes:
+        return hmac.new(signing_key, data, hashlib.sha256).digest()
