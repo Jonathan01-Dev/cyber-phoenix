@@ -84,11 +84,11 @@ class HandshakeProtocol:
         )
 
         packet = self._build_packet(PacketType.HANDSHAKE_REPLY, reply.serialize())
-        return packet, msg.ephemeral_pub, session
+        return packet, shared_hash, session
 
     def complete_handshake(
         self, reply_data: bytes, e_private: PrivateKey, expected_node_id: bytes
-    ) -> Optional[EncryptedSession]:
+    ) -> Optional[Tuple[EncryptedSession, bytes]]:
         msg = HandshakeMessage.parse(reply_data, has_signature=True, has_node_id=True)
         if not self._is_fresh(msg.timestamp):
             return None
@@ -103,7 +103,7 @@ class HandshakeProtocol:
         if not self.identity.verify(shared_hash, msg.signature, msg.node_id):
             return None
 
-        return EncryptedSession(self._derive_key(shared))
+        return EncryptedSession(self._derive_key(shared)), shared_hash
 
     def _derive_key(self, shared_secret: bytes) -> bytes:
         from cryptography.hazmat.primitives import hashes
