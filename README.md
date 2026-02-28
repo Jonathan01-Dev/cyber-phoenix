@@ -21,6 +21,15 @@ Implémentation Python d'un nœud P2P LAN.
 - TOFU persistant (`~/.archipel/trust.json`)
 - Auto-connexion TCP vers les pairs decouverts
 
+## Sprint 3 livre
+
+- Manifest signe (SHA-256 fichier + hashes de chunks)
+- Segmentation en chunks 512 KB
+- Protocole `CHUNK_REQ / CHUNK_DATA / ACK` via tunnel chiffre
+- Verification SHA-256 chunk + verification signature fournisseur
+- Telechargement parallele multi-sources (min 3 workers)
+- Reassemblage du fichier et verification hash final
+
 ## Lancer
 
 ```bash
@@ -45,3 +54,13 @@ python3 -m src.node --port 7779
 ```
 
 Chaque instance affiche les logs HELLO et la peer table en console.
+
+Exemple Sprint 3:
+
+```bash
+# Noeud source
+python3 -m src.node --port 7777 --share /chemin/fichier.bin
+
+# Noeud receveur (file_id affiche par le noeud source)
+python3 -m src.node --port 7778 --download <file_id> --out ./copie.bin
+```
