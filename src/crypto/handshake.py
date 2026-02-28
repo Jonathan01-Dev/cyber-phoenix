@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 from nacl.public import Box, PrivateKey, PublicKey
 
-from src.config import PacketType
+from src.config import Config, PacketType
 from src.crypto.identity import EncryptedSession, NodeIdentity
 
 
@@ -51,6 +51,7 @@ class HandshakeProtocol:
 
     def __init__(self, identity: NodeIdentity):
         self.identity = identity
+        self.config = Config()
         self.sessions = {}
 
     def initiate_handshake(self) -> Tuple[bytes, PrivateKey]:
@@ -63,6 +64,8 @@ class HandshakeProtocol:
 
     def respond_to_handshake(self, hello_data: bytes) -> Tuple[bytes, bytes, EncryptedSession]:
         msg = HandshakeMessage.parse(hello_data)
+        if not self._is_fresh(msg.timestamp):
+            raise ValueError("Handshake HELLO timestamp out of accepted window")
 
         e_private, e_public = EncryptedSession.generate_ephemeral_keys()
         e_remote = PublicKey(msg.ephemeral_pub)
@@ -87,6 +90,8 @@ class HandshakeProtocol:
         self, reply_data: bytes, e_private: PrivateKey, expected_node_id: bytes
     ) -> Optional[EncryptedSession]:
         msg = HandshakeMessage.parse(reply_data, has_signature=True, has_node_id=True)
+        if not self._is_fresh(msg.timestamp):
+            return None
 
         if msg.node_id != expected_node_id:
             return None
@@ -116,3 +121,7 @@ class HandshakeProtocol:
         from src.network.packet import PacketBuilder
 
         return PacketBuilder.build(pkt_type, self.identity.node_id, payload)
+
+    def _is_fresh(self, remote_ts: int) -> bool:
+        now = int(time.time())
+        return abs(now - int(remote_ts)) <= self.config.HANDSHAKE_MAX_SKEW
